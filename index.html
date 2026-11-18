@@ -219,7 +219,7 @@ details.how ul { padding-left: 18px; margin: 8px 0 0; display: flex; flex-direct
 <div class="wrap">
   <header class="top">
     <div><h1 class="mark">Crib<span>ble</span></h1><div class="dateline" id="dateline"></div></div>
-    <div class="hbtns"><button class="hbtn" id="btn-help">How to play</button></div>
+    <div class="hbtns"><button class="hbtn" id="btn-help">Tutorial</button></div>
   </header>
   <nav class="tabs" aria-label="Game modes">
     <a href="#guess" id="tab-guess">Guess the Hand</a>
@@ -643,7 +643,7 @@ if (typeof module !== 'undefined') module.exports = { RANKS, SUITS, scoreItems, 
       <details class="how"><summary>How to play</summary><ul>
         <li>The hidden hand is 4 cards plus the cut, and you’re told what it scores.</li>
         <li>Each guess is a full hand: tap 4 hand cards, then the cut. Suits don’t matter.</li>
-        ${hard ? '<li>Hard hands can include a flush or his nobs. Tap Flush to cycle Off, 4-card (hand only, +4) and 5-card (cut matches too, +5). Tap His nobs to claim the jack in your hand matches the cut’s suit (+1, needs a jack in the hand). Both start Off for every guess. If you turn one on, an F or N appears next to that guess’s score: green if the hand really has it, gray if it doesn’t. Calls you leave off show nothing.</li>' : ''}
+        ${hard ? '<li>Hard hands can include a flush or his nobs. Tap Flush to cycle Off, 4-card (hand only, +4) and 5-card (cut matches too, +5). Tap His nobs to claim the hand has his nobs (+1). Both start Off for every guess. If you turn one on, an F or N appears next to that guess’s score: green if the hand really has it, gray if it doesn’t. Calls you leave off show nothing.</li>' : ''}
         <li><b>Green</b>: the right rank in the right spot (hand or cut). Order within the hand doesn’t matter.</li>
         <li><b>Yellow</b>: that rank is in the answer, but in the other spot.</li>
         <li><b>Gray</b>: that rank isn’t in the answer.</li>
@@ -672,7 +672,6 @@ if (typeof module !== 'undefined') module.exports = { RANKS, SUITS, scoreItems, 
     const cnt = {};
     for (const c of g.current) cnt[c.r] = (cnt[c.r] || 0) + 1;
     if (Object.values(cnt).some(n => n > 4)) return toast(secG, 'A deck only has four of each rank.');
-    if (hard && g.cn && !g.current.slice(0, 4).some(c => c.r === 11)) return toast(secG, 'His nobs needs a jack in the hand (not the cut).');
     const cards = g.current.map(c => ({ r: c.r, s: -1 }));
     let sc = score(cards, { ranksOnly: true });
     const fb = feedback(cards, g.answer, false);
@@ -965,7 +964,7 @@ if (typeof module !== 'undefined') module.exports = { RANKS, SUITS, scoreItems, 
       <p><b>Easy</b> hands never have a flush or his nobs, so it’s all ranks.</p>
       <p><b>Hard</b> hands might. Before you enter a guess, set the two toggles to say what you think:</p>
       <div class="toggles" aria-hidden="true"><span class="tog on">Flush <b>4-card</b></span><span class="tog">His nobs <b>Off</b></span></div>
-      <p>Both start Off on every guess. Flush cycles Off, 4-card and 5-card. His nobs needs a jack in your hand. If you turn one on, a small <b>F</b> or <b>N</b> appears beside that guess’s score: green if you’re right, gray if you’re wrong. To win Hard, every card must be green and your calls must match the hand.</p>`,
+      <p>Both start Off on every guess. Flush cycles Off, 4-card and 5-card. If you turn one on, a small <b>F</b> or <b>N</b> appears beside that guess’s score: green if you’re right, gray if you’re wrong. To win Hard, every card must be green and your calls must match the hand.</p>`,
     () => `<h2 id="sheet-title">Toss of the Day</h2>
       <p>You’re dealt six cards and keep four. Tap the two you’d throw to the crib.</p>
       <ul class="tl">
@@ -982,7 +981,7 @@ if (typeof module !== 'undefined') module.exports = { RANKS, SUITS, scoreItems, 
       </ul>`,
     () => `<h2 id="sheet-title">Warm up</h2>
       <p>Play three warm-up games, one of each mode. They don’t count toward your stats, so take your time.</p>
-      <div class="btns"><button class="btn" data-sheet="warmup">Start warm-up</button><button class="btn ghost" data-sheet="today">Skip to today’s puzzles</button></div>`
+      <div class="btns"><button class="btn" data-sheet="warmup">Start warm-up</button><button class="btn ghost" data-sheet="refresher">Skip warm-up</button></div>`
   ];
   function tutHTML(i) {
     const last = i === TUT.length - 1;
@@ -992,19 +991,34 @@ if (typeof module !== 'undefined') module.exports = { RANKS, SUITS, scoreItems, 
       ${last ? '<span style="width:64px"></span>' : `<button class="btn" data-sheet="next" data-i="${i}">Next</button>`}</div>`;
   }
 
-  // warm-up flow
+  // warm-up flow: fresh puzzles every time the tutorial is played
+  let WU = null;
   function startWarmup() {
     closeSheet();
+    WU = { fails: [] };
     CR.mode = 'easy';
-    const g = newCr('easy', true, 'warmup-guess'); g.warmup = 1; CR.games.easy = g;
+    const g = newCr('easy', true); g.warmup = 1; CR.games.easy = g;
     renderGuess(); go('guess');
   }
-  function wuNext(from) {
-    if (from === 1) { TS = newToss(true, 'warmup-toss'); TS.warmup = 2; renderToss(); go('toss'); }
-    else if (from === 2) { MG = newMg(true, 'warmup-muggins'); MG.warmup = 3; renderMuggins(); go('muggins'); }
-    else openSheet(`${closeX}<h2 id="sheet-title">You’re warmed up</h2><p>Today’s puzzles count toward your stats and streaks. There’s one Easy and one Hard Guess the Hand, one Toss and one Muggins each day.</p>
-      <div class="btns"><button class="btn" data-sheet="today">Play today’s puzzles</button></div>`);
+  function wuFailed(g) {
+    if (g.warmup === 1) return !g.won;
+    if (g.warmup === 2) return tossResult(g).delta >= 0.5; // anything worse than "Close to best"
+    return foundPts(g) < g.missedPts;
   }
+  function wuNext(g) {
+    WU = WU || { fails: [] };
+    WU.fails[g.warmup - 1] = wuFailed(g);
+    if (g.warmup === 1) { TS = newToss(true); TS.warmup = 2; renderToss(); go('toss'); }
+    else if (g.warmup === 2) { MG = newMg(true); MG.warmup = 3; renderMuggins(); go('muggins'); }
+    else openSheet(WU.fails.filter(Boolean).length === 3 ? retryHTML() : refresherHTML());
+  }
+  const retryHTML = () => `${closeX}<h2 id="sheet-title">You sure you got this figured out?</h2>
+      <p>If you want you can try the tutorial again. You’ll get three new warm-up games.</p>
+      <div class="btns"><button class="btn" data-sheet="tut">Try the tutorial again</button><button class="btn ghost" data-sheet="refresher">I’ve got it</button></div>`;
+  const refresherHTML = () => `${closeX}<h2 id="sheet-title">You’re all set</h2>
+      <p>You can revisit the tutorial anytime if you need a refresher. Just tap <b>Tutorial</b> at the top of the page.</p>
+      <p>Today’s puzzles count toward your stats and streaks: an Easy and a Hard Guess the Hand, a Toss and a Muggins.</p>
+      <div class="btns"><button class="btn" data-sheet="today">Play today’s puzzles</button></div>`;
   function playToday() {
     closeSheet();
     CR.games.easy = loadCr('easy'); CR.games.hard = loadCr('hard'); TS = loadToss(); MG = loadMg();
@@ -1090,6 +1104,7 @@ if (typeof module !== 'undefined') module.exports = { RANKS, SUITS, scoreItems, 
     else if (a === 'close') closeSheet();
     else if (a === 'warmup') startWarmup();
     else if (a === 'today') playToday();
+    else if (a === 'refresher') openSheet(refresherHTML());
   });
   document.getElementById('btn-help').addEventListener('click', () => openSheet(tutHTML(0)));
   document.addEventListener('click', e => {
@@ -1100,7 +1115,7 @@ if (typeof module !== 'undefined') module.exports = { RANKS, SUITS, scoreItems, 
     } else if (b.dataset.act === 'wu-next') {
       const sec = b.closest('section');
       const g = sec.id === 'mode-guess' ? CR.games[CR.mode] : sec.id === 'mode-toss' ? TS : MG;
-      wuNext(g.warmup);
+      wuNext(g);
     }
   });
 

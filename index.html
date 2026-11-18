@@ -439,6 +439,7 @@ if (typeof module !== 'undefined') module.exports = { RANKS, SUITS, scoreItems, 
 // ===== Cribble UI =====
 (function () {
   const EPOCH = Date.UTC(2026, 10, 18); // Cribble #1
+  const SALT = 'r2-'; // puzzle set; changing it reshuffles every daily puzzle
   const now = new Date();
   const DAY = Math.floor((Date.UTC(now.getFullYear(), now.getMonth(), now.getDate()) - EPOCH) / 864e5) + 1;
   document.getElementById('dateline').innerHTML =
@@ -505,7 +506,7 @@ if (typeof module !== 'undefined') module.exports = { RANKS, SUITS, scoreItems, 
   }
 
   // ---------- Stats (daily puzzles only) ----------
-  const STATS_KEY = 'cribble:stats:v2';
+  const STATS_KEY = 'cribble:stats:v3';
   const loadStats = () => store.get(STATS_KEY) || {};
   function record(key, win, extra) {
     const S = loadStats();
@@ -539,9 +540,9 @@ if (typeof module !== 'undefined') module.exports = { RANKS, SUITS, scoreItems, 
   // ---------- Guess the Hand ----------
   const secG = document.getElementById('mode-guess');
   const CR = { mode: store.get('cribble:lastmode') || 'easy', games: {} };
-  const crKey = m => `cribble:v3:${DAY}:${m}`;
+  const crKey = m => `cribble:v4:${DAY}:${m}`;
   function newCr(mode, practice, keyOverride) {
-    const key = keyOverride || (practice ? fresh('practice-' + mode) : `cribble-${mode}-${DAY}`);
+    const key = keyOverride || (practice ? fresh('practice-' + mode) : `cribble-${mode}-${SALT}${DAY}`);
     const p = genCribble(key, mode === 'hard');
     const its = scoreItems(p.cards);
     const fl = its.find(i => i.type === 'flush');
@@ -563,7 +564,7 @@ if (typeof module !== 'undefined') module.exports = { RANKS, SUITS, scoreItems, 
   }
   function crShare(g) {
     const em = { green: '🟩', yellow: '🟨', gray: '⬜', extra: '⬜' };
-    const lines = g.guesses.map(G => `${G.fb.slice(0, 4).map(f => em[f]).join('')} ${em[G.fb[4]]}${g.mode === 'hard' ? ` F${em[G.ffb]} N${em[G.nfb]}` : ''} ${G.score}`);
+    const lines = g.guesses.map(G => `${G.fb.slice(0, 4).map(f => em[f]).join('')} ${em[G.fb[4]]}${G.flush ? ` F${em[G.ffb]}` : ''}${G.nobs ? ` N${em[G.nfb]}` : ''} ${G.score}`);
     const head = g.practice ? 'Cribble Practice' : `Cribble #${DAY}`;
     return `${head} ${g.mode === 'hard' ? 'Hard' : 'Easy'} 🃏 ${g.won ? g.guesses.length : 'X'}/6\nTarget ${g.target}\n${lines.join('\n')}`;
   }
@@ -588,7 +589,10 @@ if (typeof module !== 'undefined') module.exports = { RANKS, SUITS, scoreItems, 
       let sc = '';
       if (G) {
         G.cards.forEach((c, k) => cells.push(tileHTML(c, G.fb[k], hard, i === flipRow, k)));
-        sc = hard ? `${G.score}<span class="flags"><i class="${G.ffb}" title="Flush ${G.flush ? G.flush + '-card' : 'off'}">${G.flush ? 'F' + G.flush : 'F'}</i><i class="${G.nfb}" title="Nobs ${G.nobs ? 'on' : 'off'}">N</i></span>` : `${G.score}<small>pts</small>`;
+        const fl = hard && (G.flush || G.nobs)
+          ? `<span class="flags">${G.flush ? `<i class="${G.ffb}" title="${G.flush}-card flush: ${G.ffb === 'green' ? 'right' : 'wrong'}">F${G.flush}</i>` : ''}${G.nobs ? `<i class="${G.nfb}" title="His nobs: ${G.nfb === 'green' ? 'right' : 'wrong'}">N</i>` : ''}</span>`
+          : '<small>pts</small>';
+        sc = `${G.score}${fl}`;
       }
       else if (i === g.guesses.length && !g.done) for (let k = 0; k < 5; k++) { const c = g.current[k]; cells.push(c ? tileHTML(c, 'fill', hard) : '<div class="tile"></div>'); }
       else for (let k = 0; k < 5; k++) cells.push('<div class="tile"></div>');
@@ -639,7 +643,7 @@ if (typeof module !== 'undefined') module.exports = { RANKS, SUITS, scoreItems, 
       <details class="how"><summary>How to play</summary><ul>
         <li>The hidden hand is 4 cards plus the cut, and you’re told what it scores.</li>
         <li>Each guess is a full hand: tap 4 hand cards, then the cut. Suits don’t matter.</li>
-        ${hard ? '<li>Hard hands can include a flush or his nobs. Tap Flush to cycle Off, 4-card (hand only, +4) and 5-card (cut matches too, +5). Tap His nobs to claim the jack in your hand matches the cut’s suit (+1, needs a jack in the hand). Each toggle turns green if your call is right and gray if it’s wrong.</li>' : ''}
+        ${hard ? '<li>Hard hands can include a flush or his nobs. Tap Flush to cycle Off, 4-card (hand only, +4) and 5-card (cut matches too, +5). Tap His nobs to claim the jack in your hand matches the cut’s suit (+1, needs a jack in the hand). Both start Off for every guess. If you turn one on, an F or N appears next to that guess’s score: green if the hand really has it, gray if it doesn’t. Calls you leave off show nothing.</li>' : ''}
         <li><b>Green</b>: the right rank in the right spot (hand or cut). Order within the hand doesn’t matter.</li>
         <li><b>Yellow</b>: that rank is in the answer, but in the other spot.</li>
         <li><b>Gray</b>: that rank isn’t in the answer.</li>
@@ -680,7 +684,7 @@ if (typeof module !== 'undefined') module.exports = { RANKS, SUITS, scoreItems, 
       G.nfb = g.cn === g.ansNobs ? 'green' : 'gray';
     }
     g.guesses.push(G);
-    g.current = [];
+    g.current = []; g.cf = 0; g.cn = false;
     if (fb.every(f => f === 'green') && (!hard || (G.ffb === 'green' && G.nfb === 'green'))) { g.done = true; g.won = true; }
     else if (g.guesses.length >= 6) g.done = true;
     saveCr(g);
@@ -715,9 +719,9 @@ if (typeof module !== 'undefined') module.exports = { RANKS, SUITS, scoreItems, 
 
   // ---------- Toss of the Day ----------
   const secT = document.getElementById('mode-toss');
-  const tsKey = () => `cribble:v2:${DAY}:toss`;
+  const tsKey = () => `cribble:v3:${DAY}:toss`;
   function newToss(practice, keyOverride) {
-    const key = keyOverride || (practice ? fresh('practice-toss') : `toss-${DAY}`);
+    const key = keyOverride || (practice ? fresh('practice-toss') : `toss-${SALT}${DAY}`);
     const p = genToss(key);
     return { key, practice, six: p.six, dealer: p.dealer, sel: [], done: false, analysis: null };
   }
@@ -812,9 +816,9 @@ if (typeof module !== 'undefined') module.exports = { RANKS, SUITS, scoreItems, 
 
   // ---------- Muggins ----------
   const secM = document.getElementById('mode-muggins');
-  const mgKey = () => `cribble:v2:${DAY}:muggins`;
+  const mgKey = () => `cribble:v3:${DAY}:muggins`;
   function newMg(practice, keyOverride) {
-    const key = keyOverride || (practice ? fresh('practice-muggins') : `muggins-${DAY}`);
+    const key = keyOverride || (practice ? fresh('practice-muggins') : `muggins-${SALT}${DAY}`);
     const p = genMuggins(key);
     return Object.assign({ key, practice, sel: [], found: [], misses: 0, started: null, elapsed: null, done: false }, p);
   }
@@ -855,7 +859,7 @@ if (typeof module !== 'undefined') module.exports = { RANKS, SUITS, scoreItems, 
     secM.innerHTML = `
       <div class="target">
         <div class="big"><span class="num">${counted}</span><span class="lab">is what your opponent counted for their ${m.crib ? 'crib' : 'hand'} ${badge(m)}</span></div>
-        <p class="note">They missed <b style="color:var(--brass)">${m.missedPts} point${m.missedPts === 1 ? '' : 's'}</b>. Tap the cards in each missed combo and call it. The round ends when they have all been found or you give up with I'm Done.</p>
+        <p class="note">They missed <b style="color:var(--brass)">${m.missedPts} point${m.missedPts === 1 ? '' : 's'}</b>. Tap the cards in each missed combo and call it. The round ends when you’ve found them all, or tap I’m done to give up.</p>
       </div>
       <div style="padding-top:12px">${handRow(m.cards, m.sel, m.done)}</div>
       <div class="stats"><span>Found <b>${fp}</b> / ${m.missedPts} pts</span><span>Time <b id="mg-clock">${clock(mgSeconds(m))}</b></span><span>Wrong calls <b>${m.misses}</b></span></div>
@@ -961,7 +965,7 @@ if (typeof module !== 'undefined') module.exports = { RANKS, SUITS, scoreItems, 
       <p><b>Easy</b> hands never have a flush or his nobs, so it’s all ranks.</p>
       <p><b>Hard</b> hands might. Before you enter a guess, set the two toggles to say what you think:</p>
       <div class="toggles" aria-hidden="true"><span class="tog on">Flush <b>4-card</b></span><span class="tog">His nobs <b>Off</b></span></div>
-      <p>Flush cycles Off, 4-card and 5-card. His nobs needs a jack in your hand. After each guess, a small <b>F</b> and <b>N</b> beside the score turn green if your call was right. To win Hard, every card and both calls must be green.</p>`,
+      <p>Both start Off on every guess. Flush cycles Off, 4-card and 5-card. His nobs needs a jack in your hand. If you turn one on, a small <b>F</b> or <b>N</b> appears beside that guess’s score: green if you’re right, gray if you’re wrong. To win Hard, every card must be green and your calls must match the hand.</p>`,
     () => `<h2 id="sheet-title">Toss of the Day</h2>
       <p>You’re dealt six cards and keep four. Tap the two you’d throw to the crib.</p>
       <ul class="tl">

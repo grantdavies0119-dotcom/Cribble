@@ -467,8 +467,19 @@ if (typeof module !== 'undefined') module.exports = { RANKS, SUITS, scoreItems, 
   }
   const itemsList = (items, cards, withSuit, cls = () => '') =>
     `<ul class="items">${items.map(it => `<li class="${cls(it)}">${itemLabel(it, cards, withSuit)}</li>`).join('')}</ul>`;
+  // Link added to shared results. Set SITE_URL to pin it (e.g. 'https://cribble.io/');
+  // left empty, it uses the page's own address when hosted on a normal website.
+  const SITE_URL = '';
+  function siteLink() {
+    if (SITE_URL) return SITE_URL;
+    const L = location;
+    if (!/^https?:$/.test(L.protocol) || /claude|anthropic/i.test(L.hostname)) return '';
+    return L.origin + L.pathname.replace(/index\.html$/, '');
+  }
   async function copyText(text, host, btn) {
     if (!text) return;
+    const link = siteLink();
+    if (link) text += `\nPlay: ${link}`;
     if (navigator.share) {
       try { await navigator.share({ text }); return; } catch (e) { if (e && e.name === 'AbortError') return; }
     }

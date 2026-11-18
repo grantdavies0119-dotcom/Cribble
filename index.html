@@ -855,7 +855,7 @@ if (typeof module !== 'undefined') module.exports = { RANKS, SUITS, scoreItems, 
     secM.innerHTML = `
       <div class="target">
         <div class="big"><span class="num">${counted}</span><span class="lab">is what your opponent counted for their ${m.crib ? 'crib' : 'hand'} ${badge(m)}</span></div>
-        <p class="note">They missed <b style="color:var(--brass)">${m.missedPts} point${m.missedPts === 1 ? '' : 's'}</b>. Tap the cards in each missed combo and call it.</p>
+        <p class="note">They missed <b style="color:var(--brass)">${m.missedPts} point${m.missedPts === 1 ? '' : 's'}</b>. Tap the cards in each missed combo and call it. The round ends when they have all been found or you give up with I'm Done.</p>
       </div>
       <div style="padding-top:12px">${handRow(m.cards, m.sel, m.done)}</div>
       <div class="stats"><span>Found <b>${fp}</b> / ${m.missedPts} pts</span><span>Time <b id="mg-clock">${clock(mgSeconds(m))}</b></span><span>Wrong calls <b>${m.misses}</b></span></div>

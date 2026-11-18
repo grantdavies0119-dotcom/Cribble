@@ -1,0 +1,1127 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Cribble</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Rozha+One&family=Barlow+Semi+Condensed:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  /* Walnut cribbage board: dark grained wood, brass pegs, ivory cards. One column, phone-first. */
+  --wood: #24160f;
+  --wood-2: #33211767;
+  --panel: #3a271c;
+  --line: #5a412f;
+  --brass: #d4a842;
+  --ivory: #f4ecdb;
+  --ink: #1c130e;
+  --text: #f1e6d2;
+  --muted: #bba68b;
+  --hit: #3f8a5f;
+  --near: #c99a2e;
+  --miss: #5d5249;
+  --red: #b3261e;
+  --display: "Rozha One", "Didot", Georgia, serif;
+  --body: "Barlow Semi Condensed", "Arial Narrow", system-ui, sans-serif;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body {
+  background-color: var(--wood);
+  background-image:
+    repeating-linear-gradient(92deg, rgba(255,220,180,.025) 0 2px, transparent 2px 9px),
+    repeating-linear-gradient(88deg, rgba(0,0,0,.18) 0 1px, transparent 1px 23px);
+  color: var(--text);
+  font-family: var(--body);
+  font-size: 17px;
+  line-height: 1.4;
+  min-height: 100%;
+}
+button { font-family: inherit; }
+:focus-visible { outline: 2px solid var(--brass); outline-offset: 2px; }
+.wrap { max-width: 520px; margin: 0 auto; padding: 16px 16px 48px; display: flex; flex-direction: column; gap: 16px; }
+
+header.top { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+.mark { font-family: var(--display); font-size: 40px; line-height: 1; letter-spacing: .5px; margin: 0; color: var(--ivory); }
+.mark span { color: var(--brass); }
+.dateline { color: var(--muted); font-size: 14px; font-variant-numeric: tabular-nums; margin-top: 4px; }
+.hbtns { display: flex; gap: 6px; align-self: center; }
+.hbtn { background: transparent; color: var(--text); border: 1px solid var(--line); border-radius: 999px; padding: 7px 12px; font-weight: 600; font-size: 14px; cursor: pointer; }
+.hbtn:hover { border-color: var(--brass); }
+.overlay { position: fixed; inset: 0; background: rgba(12, 7, 4, .78); display: flex; align-items: flex-end; justify-content: center; z-index: 10; padding: 12px 12px 0; }
+.overlay[hidden] { display: none; }
+.sheet { position: relative; width: 100%; max-width: 520px; max-height: 92%; overflow-y: auto; background: var(--panel); border: 1px solid var(--line); border-bottom: 0; border-radius: 16px 16px 0 0; padding: 20px 16px 24px; display: flex; flex-direction: column; gap: 12px; }
+@media (min-width: 600px) { .overlay { align-items: center; padding: 24px; } .sheet { border-radius: 16px; border-bottom: 1px solid var(--line); } }
+.sheet h2 { font-family: var(--display); font-weight: 400; font-size: 28px; margin: 0; line-height: 1.1; padding-right: 36px; text-wrap: balance; }
+.sheet p { margin: 0; }
+.xbtn { position: absolute; top: 10px; right: 10px; width: 36px; height: 36px; border-radius: 50%; border: 1px solid var(--line); background: transparent; color: var(--text); font-size: 22px; line-height: 1; cursor: pointer; }
+.tstep { font-size: 12px; text-transform: uppercase; letter-spacing: .12em; color: var(--brass); font-weight: 700; }
+.tl { padding-left: 18px; margin: 0; display: flex; flex-direction: column; gap: 6px; }
+.tl .sw { display: inline-block; width: 14px; height: 14px; border-radius: 3px; vertical-align: -2px; margin-right: 6px; }
+.sw.green { background: var(--hit); } .sw.yellow { background: var(--near); } .sw.gray, .sw.extra { background: var(--miss); }
+.sw.extra { position: relative; } .sw.extra::after { content: "×"; position: absolute; inset: -3px 0 0 0; text-align: center; font-size: 13px; font-weight: 700; color: var(--brass); }
+.tnav { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 4px; }
+.dots { display: flex; gap: 6px; } .dots span { width: 8px; height: 8px; border-radius: 50%; background: var(--line); } .dots span.on { background: var(--brass); }
+.sblock { display: flex; flex-direction: column; gap: 8px; padding: 12px 0; border-top: 1px solid var(--line); }
+.sblock h3 { margin: 0; font-size: 16px; font-weight: 700; }
+.sgrid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+.sgrid div { display: flex; flex-direction: column; align-items: center; text-align: center; }
+.sgrid b { font-family: var(--display); font-weight: 400; font-size: 26px; line-height: 1.1; color: var(--ivory); font-variant-numeric: tabular-nums; }
+.sgrid span { font-size: 12px; color: var(--muted); }
+.today { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.today li { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 8px 10px; border-radius: 8px; background: rgba(0,0,0,.22); }
+.today .ok { color: var(--brass); font-weight: 600; font-size: 15px; }
+.today .todo { color: var(--muted); font-size: 15px; }
+.today .btn { padding: 7px 14px; font-size: 15px; }
+.panel .sblock:first-child { border-top: 0; padding-top: 0; }
+.target .sgrid b { font-size: 24px; }
+.bars { display: flex; flex-direction: column; gap: 3px; }
+.bar { display: flex; align-items: center; gap: 6px; font-size: 13px; font-variant-numeric: tabular-nums; }
+.bar span { width: 10px; color: var(--muted); }
+.bar i { font-style: normal; background: var(--miss); color: var(--ivory); text-align: right; padding: 1px 6px; border-radius: 3px; font-weight: 700; }
+
+nav.tabs { display: grid; grid-template-columns: 1.3fr 1fr 1fr 1fr; gap: 6px; background: rgba(0,0,0,.25); padding: 5px; border-radius: 12px; border: 1px solid var(--line); }
+nav.tabs a { text-decoration: none; color: var(--muted); text-align: center; padding: 9px 4px; border-radius: 8px; font-weight: 600; font-size: 15px; display: flex; align-items: center; justify-content: center; }
+nav.tabs a[aria-current="page"] { background: var(--panel); color: var(--ivory); box-shadow: inset 0 0 0 1px var(--brass); }
+
+section.mode { display: none; flex-direction: column; gap: 14px; }
+section.mode.on { display: flex; }
+
+.seg { display: inline-flex; border: 1px solid var(--line); border-radius: 999px; overflow: hidden; align-self: flex-start; }
+.seg button { background: transparent; color: var(--muted); border: 0; padding: 6px 16px; font-weight: 600; font-size: 15px; cursor: pointer; }
+.seg button[aria-pressed="true"] { background: var(--brass); color: var(--ink); }
+
+.target { display: flex; flex-direction: column; gap: 10px; background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 14px; }
+.target .big { display: flex; align-items: baseline; gap: 10px; }
+.target .num { font-family: var(--display); font-size: 54px; line-height: .9; color: var(--brass); font-variant-numeric: tabular-nums; }
+.target .lab { font-size: 18px; font-weight: 600; }
+.note { color: var(--muted); font-size: 15px; margin: 0; }
+
+/* peg track */
+.track { display: flex; gap: 8px; justify-content: space-between; }
+.street { display: flex; flex-direction: column; gap: 3px; align-items: flex-start; }
+.holes { display: flex; gap: 3px; }
+.track { gap: 4px; }
+.hole { width: 7px; height: 7px; border-radius: 50%; background: #120b07; box-shadow: inset 0 1px 1px rgba(0,0,0,.8), 0 1px 0 rgba(255,255,255,.06); position: relative; }
+.hole.g { background: var(--ivory); box-shadow: 0 0 0 1px rgba(0,0,0,.4); }
+.hole.g.latest { transform: scale(1.35); }
+.hole.t { background: var(--brass); box-shadow: 0 0 0 2px rgba(212,168,66,.35); }
+.street small { font-size: 11px; color: var(--muted); font-variant-numeric: tabular-nums; }
+
+/* board */
+.board { display: flex; flex-direction: column; gap: 6px; }
+.row { display: grid; grid-template-columns: repeat(4, 1fr) 10px 1fr 52px; gap: 5px; align-items: center; }
+.row .sep { width: 2px; height: 70%; background: var(--line); justify-self: center; }
+.tile { aspect-ratio: 5/6; border-radius: 7px; display: grid; place-items: center; font-family: var(--display); font-size: 22px; line-height: 1; border: 1px solid var(--line); background: rgba(0,0,0,.2); color: var(--text); }
+.tile.fill { background: var(--ivory); color: var(--ink); border-color: var(--ivory); }
+.tile.fill.red { color: var(--red); }
+.tile.green { background: var(--hit); border-color: var(--hit); color: #fff; }
+.tile.yellow { background: var(--near); border-color: var(--near); color: var(--ink); }
+.tile.gray { background: var(--miss); border-color: var(--miss); color: #e9dfd0; }
+.tile.extra { background: var(--miss); border-color: var(--miss); color: #e9dfd0; position: relative; }
+.tile.extra::after { content: "×"; position: absolute; top: 2px; right: 4px; font-family: var(--body); font-weight: 700; font-size: 13px; line-height: 1; color: var(--brass); }
+.tile .su { font-size: .7em; margin-left: 1px; }
+.tile.flip { animation: flip .4s ease both; }
+@keyframes flip { from { transform: rotateX(90deg); } to { transform: rotateX(0); } }
+.row .sc { text-align: right; font-weight: 700; font-variant-numeric: tabular-nums; color: var(--ivory); font-size: 18px; }
+.row .sc small { display: block; font-size: 11px; color: var(--muted); font-weight: 500; }
+.row .sc .flags { display: flex; gap: 2px; justify-content: flex-end; margin-top: 3px; }
+.row .sc .flags i { font-style: normal; font-size: 10px; font-weight: 700; padding: 1px 3px; border-radius: 4px; color: #fff; }
+.row .sc .flags i.green { background: var(--hit); }
+.row .sc .flags i.gray { background: var(--miss); color: #e9dfd0; }
+.toggles { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.tog { background: transparent; color: var(--text); border: 1px solid var(--line); border-radius: 9px; padding: 10px 8px; font-size: 15px; font-weight: 600; cursor: pointer; display: flex; justify-content: space-between; gap: 6px; touch-action: manipulation; }
+.tog b { color: var(--muted); }
+.tog.on { border-color: var(--brass); background: rgba(212,168,66,.15); }
+.tog.on b { color: var(--brass); }
+.rowlabels { display: grid; grid-template-columns: repeat(4, 1fr) 10px 1fr 52px; gap: 5px; font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: .08em; }
+.rowlabels .h { grid-column: 1 / 5; text-align: center; }
+.rowlabels .c { grid-column: 6; text-align: center; }
+.rowlabels .p { grid-column: 7; text-align: right; }
+
+/* keyboard */
+.kb { display: flex; flex-direction: column; gap: 6px; }
+.kb .krow { display: grid; gap: 5px; }
+.kb .k7 { grid-template-columns: repeat(7, 1fr); }
+.kb .k6 { grid-template-columns: 1.4fr repeat(6, 1fr) 1.4fr; }
+.kb .k4 { grid-template-columns: repeat(4, 1fr); }
+.key { background: var(--ivory); color: var(--ink); border: 0; border-radius: 7px; padding: 12px 0; font-family: var(--display); font-size: 20px; cursor: pointer; box-shadow: 0 2px 0 #9c8b70; touch-action: manipulation; }
+.key:active { transform: translateY(2px); box-shadow: none; }
+.key.red { color: var(--red); }
+.key.wide { font-family: var(--body); font-weight: 700; font-size: 14px; background: var(--brass); }
+.key.g { background: var(--hit); color: #fff; box-shadow: 0 2px 0 #24563a; }
+.key.y { background: var(--near); }
+.key.x { background: var(--miss); color: #e9dfd0; box-shadow: 0 2px 0 #3a332d; }
+.key:disabled { opacity: .45; cursor: default; }
+
+.toast { min-height: 22px; text-align: center; color: var(--brass); font-weight: 600; font-size: 15px; }
+
+/* cards for toss & muggins */
+.hand { display: flex; gap: 6px; justify-content: center; flex-wrap: wrap; }
+.card { width: clamp(44px, 13.5vw, 62px); aspect-ratio: 62 / 88; border-radius: 8px; background: var(--ivory); color: var(--ink); border: 0; display: flex; flex-direction: column; justify-content: space-between; padding: 6px 7px; box-shadow: 0 3px 6px rgba(0,0,0,.45); cursor: pointer; transition: transform .15s ease, box-shadow .15s ease; font-family: var(--display); touch-action: manipulation; }
+.card.red { color: var(--red); }
+.card .cr { font-size: clamp(18px, 5.4vw, 24px); line-height: 1; text-align: left; }
+.card .cs { font-size: clamp(20px, 6.4vw, 28px); line-height: 1; text-align: right; }
+.card[aria-pressed="true"] { transform: translateY(-10px); box-shadow: 0 0 0 3px var(--brass), 0 8px 14px rgba(0,0,0,.5); }
+.card:disabled { cursor: default; }
+.cutgap { width: 14px; display: flex; align-items: center; justify-content: center; }
+.cutwrap { display: flex; flex-direction: column; align-items: center; gap: 4px; }
+.cutwrap small { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .1em; }
+
+.panel { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 14px; display: flex; flex-direction: column; gap: 10px; }
+.panel h2 { font-family: var(--display); font-weight: 400; font-size: 26px; margin: 0; line-height: 1.1; text-wrap: balance; }
+.panel p { margin: 0; }
+.btns { display: flex; gap: 8px; flex-wrap: wrap; }
+.btn { background: var(--brass); color: var(--ink); border: 0; border-radius: 9px; padding: 11px 16px; font-weight: 700; font-size: 16px; cursor: pointer; }
+.btn.ghost { background: transparent; color: var(--text); box-shadow: inset 0 0 0 1px var(--line); }
+.btn:disabled { opacity: .45; cursor: default; }
+
+.items { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+.items li { display: flex; justify-content: space-between; gap: 10px; padding: 6px 10px; border-radius: 8px; background: rgba(0,0,0,.22); font-size: 16px; }
+.items li b { font-variant-numeric: tabular-nums; color: var(--brass); }
+.items li.found { background: rgba(63,138,95,.35); }
+.items li.missed { background: rgba(179,38,30,.25); }
+.items .cc { font-family: var(--display); letter-spacing: .5px; }
+.items .cc .r { color: #ff8f86; }
+
+table.ev { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; font-size: 15px; }
+table.ev th { text-align: right; color: var(--muted); font-weight: 600; padding: 4px 6px; border-bottom: 1px solid var(--line); }
+table.ev th:first-child, table.ev td:first-child { text-align: left; }
+table.ev td { text-align: right; padding: 6px; border-bottom: 1px solid rgba(90,65,47,.5); }
+table.ev tr.you td { background: rgba(212,168,66,.18); font-weight: 700; }
+table.ev .cc { font-family: var(--display); }
+table.ev .cc .r { color: #ff8f86; }
+
+.stats { display: flex; gap: 14px; flex-wrap: wrap; font-variant-numeric: tabular-nums; color: var(--muted); font-size: 15px; }
+.stats b { color: var(--ivory); font-size: 18px; }
+
+details.how { color: var(--muted); font-size: 15px; border-top: 1px solid var(--line); padding-top: 10px; }
+details.how summary { cursor: pointer; color: var(--text); font-weight: 600; }
+details.how ul { padding-left: 18px; margin: 8px 0 0; display: flex; flex-direction: column; gap: 4px; }
+
+.sharebox { width: 100%; min-height: 120px; background: #120b07; color: var(--ivory); border: 1px solid var(--line); border-radius: 8px; padding: 8px; font-family: ui-monospace, monospace; font-size: 14px; }
+.badge { display: inline-block; font-size: 12px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; background: var(--brass); color: var(--ink); padding: 2px 8px; border-radius: 999px; vertical-align: middle; }
+
+@media (max-width: 380px) {
+  .tile { font-size: 18px; }
+  .hole { width: 6px; height: 6px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .tile.flip { animation: none; }
+  .card { transition: none; }
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <div><h1 class="mark">Crib<span>ble</span></h1><div class="dateline" id="dateline"></div></div>
+    <div class="hbtns"><button class="hbtn" id="btn-help">How to play</button></div>
+  </header>
+  <nav class="tabs" aria-label="Game modes">
+    <a href="#guess" id="tab-guess">Guess the Hand</a>
+    <a href="#toss" id="tab-toss">Toss</a>
+    <a href="#muggins" id="tab-muggins">Muggins</a>
+    <a href="#stats" id="tab-stats">Stats</a>
+  </nav>
+
+  <section class="mode" id="mode-guess" aria-label="Guess the Hand"></section>
+  <section class="mode" id="mode-toss" aria-label="Toss of the Day"></section>
+  <section class="mode" id="mode-muggins" aria-label="Muggins"></section>
+  <section class="mode" id="mode-stats" aria-label="Stats"></section>
+</div>
+<div class="overlay" id="overlay" hidden><div class="sheet" id="sheet" role="dialog" aria-modal="true" aria-labelledby="sheet-title"></div></div>
+<script>
+// ===== Cribble core logic =====
+const RANKS = ['', 'A', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K'];
+const SUITS = ['♠', '♥', '♦', '♣'];
+const SUIT_KEYS = ['s', 'h', 'd', 'c'];
+const val = r => (r > 10 ? 10 : r);
+
+function hashStr(s) {
+  let h = 1779033703 ^ s.length;
+  for (let i = 0; i < s.length; i++) {
+    h = Math.imul(h ^ s.charCodeAt(i), 3432918353);
+    h = (h << 13) | (h >>> 19);
+  }
+  h = Math.imul(h ^ (h >>> 16), 2246822507);
+  h = Math.imul(h ^ (h >>> 13), 3266489909);
+  return (h ^= h >>> 16) >>> 0;
+}
+function mulberry32(a) {
+  return function () {
+    a |= 0; a = (a + 0x6d2b79f5) | 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+const rngFor = key => mulberry32(hashStr(key));
+function fullDeck() {
+  const d = [];
+  for (let s = 0; s < 4; s++) for (let r = 1; r <= 13; r++) d.push({ r, s });
+  return d;
+}
+function shuffledDeck(rng) {
+  const d = fullDeck();
+  for (let i = d.length - 1; i > 0; i--) {
+    const j = Math.floor(rng() * (i + 1));
+    [d[i], d[j]] = [d[j], d[i]];
+  }
+  return d;
+}
+
+// cards: [h0,h1,h2,h3,cut]. opts: {crib, ranksOnly}
+function scoreItems(cards, opts = {}) {
+  const items = [];
+  const n = cards.length;
+  for (let m = 1; m < 1 << n; m++) {
+    let s = 0; const idx = [];
+    for (let i = 0; i < n; i++) if (m & (1 << i)) { s += val(cards[i].r); idx.push(i); }
+    if (s === 15 && idx.length >= 2) items.push({ type: 'fifteen', idx, pts: 2 });
+  }
+  for (let i = 0; i < n; i++)
+    for (let j = i + 1; j < n; j++)
+      if (cards[i].r === cards[j].r) items.push({ type: 'pair', idx: [i, j], pts: 2 });
+  const byRank = {};
+  cards.forEach((c, i) => (byRank[c.r] = byRank[c.r] || []).push(i));
+  let r = 1;
+  while (r <= 13) {
+    if (!byRank[r]) { r++; continue; }
+    const start = r;
+    while (byRank[r + 1]) r++;
+    const len = r - start + 1;
+    if (len >= 3) {
+      let combos = [[]];
+      for (let k = start; k <= r; k++) {
+        const nc = [];
+        for (const c of combos) for (const i of byRank[k]) nc.push([...c, i]);
+        combos = nc;
+      }
+      combos.forEach(c => items.push({ type: 'run', idx: c.sort((a, b) => a - b), pts: len }));
+    }
+    r++;
+  }
+  if (!opts.ranksOnly) {
+    const s0 = cards[0].s;
+    if (cards.slice(0, 4).every(c => c.s === s0)) {
+      if (cards[4].s === s0) items.push({ type: 'flush', idx: [0, 1, 2, 3, 4], pts: 5 });
+      else if (!opts.crib) items.push({ type: 'flush', idx: [0, 1, 2, 3], pts: 4 });
+    }
+    for (let i = 0; i < 4; i++)
+      if (cards[i].r === 11 && cards[i].s === cards[4].s) items.push({ type: 'nobs', idx: [i, 4], pts: 1 });
+  }
+  return items;
+}
+const score = (cards, opts) => scoreItems(cards, opts).reduce((a, b) => a + b.pts, 0);
+const hasFlushOrNobs = cards => scoreItems(cards).some(it => it.type === 'flush' || it.type === 'nobs');
+
+// Fast allocation-free scorer for expected-value math
+const R5 = new Int32Array(5), S5 = new Int32Array(5), V5 = new Int32Array(5), CNT = new Int32Array(16);
+function fastScore(crib) {
+  let p = 0;
+  for (let i = 0; i < 5; i++) V5[i] = R5[i] > 10 ? 10 : R5[i];
+  for (let m = 3; m < 32; m++) {
+    let s = 0;
+    if (m & 1) s += V5[0]; if (m & 2) s += V5[1]; if (m & 4) s += V5[2];
+    if (m & 8) s += V5[3]; if (m & 16) s += V5[4];
+    if (s === 15) p += 2;
+  }
+  for (let i = 0; i < 5; i++) for (let j = i + 1; j < 5; j++) if (R5[i] === R5[j]) p += 2;
+  CNT.fill(0);
+  for (let i = 0; i < 5; i++) CNT[R5[i]]++;
+  let r = 1;
+  while (r <= 13) {
+    if (!CNT[r]) { r++; continue; }
+    let len = 0, mult = 1;
+    while (r <= 13 && CNT[r]) { len++; mult *= CNT[r]; r++; }
+    if (len >= 3) p += len * mult;
+  }
+  if (S5[0] === S5[1] && S5[1] === S5[2] && S5[2] === S5[3]) {
+    if (S5[4] === S5[0]) p += 5; else if (!crib) p += 4;
+  }
+  for (let i = 0; i < 4; i++) if (R5[i] === 11 && S5[i] === S5[4]) p += 1;
+  return p;
+}
+function load5(cards) { for (let i = 0; i < 5; i++) { R5[i] = cards[i].r; S5[i] = cards[i].s; } }
+
+// ----- Guess the Hand -----
+function genCribble(key, hard) {
+  const rng = rngFor(key);
+  for (let t = 0; t < 10000; t++) {
+    const cards = shuffledDeck(rng).slice(0, 5);
+    if (!hard && hasFlushOrNobs(cards)) continue;
+    const sc = score(cards, { ranksOnly: !hard });
+    if (sc < 6 || sc > 24) continue;
+    if (hard && t < 3000 && rng() < 0.9 && !hasFlushOrNobs(cards)) continue; // about half of Hard hands carry a flush or nobs // lean hard mode toward suit features
+    return { cards, score: sc };
+  }
+}
+function feedback(guess, answer, hard) {
+  const res = Array(5).fill('gray');
+  const used = Array(5).fill(false);
+  const same = (a, b) => (hard ? a.r === b.r && a.s === b.s : a.r === b.r);
+  if (same(guess[4], answer[4])) { res[4] = 'green'; used[4] = true; }
+  for (let i = 0; i < 4; i++)
+    for (let j = 0; j < 4; j++)
+      if (!used[j] && same(guess[i], answer[j])) { res[i] = 'green'; used[j] = true; break; }
+  for (let i = 0; i < 5; i++) {
+    if (res[i] === 'green') continue;
+    for (let j = 0; j < 5; j++)
+      if (!used[j] && guess[i].r === answer[j].r) { res[i] = 'yellow'; used[j] = true; break; }
+  }
+  // gray only because that rank's copies are used up
+  for (let i = 0; i < 5; i++) if (res[i] === 'gray' && answer.some(c => c.r === guess[i].r)) res[i] = 'extra';
+  return res;
+}
+
+// ----- Toss of the Day -----
+function genToss(key) {
+  const rng = rngFor(key);
+  const six = shuffledDeck(rng).slice(0, 6).sort((a, b) => a.r - b.r || a.s - b.s);
+  return { six, dealer: rng() < 0.5 };
+}
+function tossAnalysis(six, dealer) {
+  const inSix = new Set(six.map(c => c.r + ':' + c.s));
+  const rest = fullDeck().filter(c => !inSix.has(c.r + ':' + c.s));
+  const N = rest.length; // 46
+  const out = [];
+  for (let i = 0; i < 6; i++)
+    for (let j = i + 1; j < 6; j++) {
+      const keep = six.filter((_, k) => k !== i && k !== j);
+      let h = 0;
+      for (const cut of rest) { load5([...keep, cut]); h += fastScore(false); }
+      h /= N;
+      let c = 0, cnt = 0;
+      R5[0] = six[i].r; S5[0] = six[i].s; R5[1] = six[j].r; S5[1] = six[j].s;
+      for (let a = 0; a < N; a++) {
+        R5[2] = rest[a].r; S5[2] = rest[a].s;
+        for (let b = a + 1; b < N; b++) {
+          R5[3] = rest[b].r; S5[3] = rest[b].s;
+          for (let x = 0; x < N; x++) {
+            if (x === a || x === b) continue;
+            R5[4] = rest[x].r; S5[4] = rest[x].s;
+            c += fastScore(true); cnt++;
+          }
+        }
+      }
+      c /= cnt;
+      out.push({ toss: [i, j], hand: h, crib: c, net: dealer ? h + c : h - c });
+    }
+  out.sort((a, b) => b.net - a.net);
+  return out;
+}
+
+// ----- Muggins -----
+function genMuggins(key) {
+  const rng = rngFor(key);
+  for (let t = 0; t < 10000; t++) {
+    const cards = shuffledDeck(rng).slice(0, 5);
+    const crib = rng() < 0.25;
+    const items = scoreItems(cards, { crib });
+    const total = items.reduce((a, b) => a + b.pts, 0);
+    if (total < 8 || items.length < 4) continue;
+    const order = items.map((_, i) => i);
+    for (let i = order.length - 1; i > 0; i--) { const j = Math.floor(rng() * (i + 1)); [order[i], order[j]] = [order[j], order[i]]; }
+    const k = Math.min(1 + Math.floor(rng() * 3), items.length - 2);
+    const missed = order.slice(0, k);
+    const missedPts = missed.reduce((a, i) => a + items[i].pts, 0);
+    if (missedPts < 2) continue;
+    return { cards, crib, items, missed, total, missedPts };
+  }
+}
+
+if (typeof module !== 'undefined') module.exports = { RANKS, SUITS, scoreItems, score, fastScore, load5, genCribble, feedback, genToss, tossAnalysis, genMuggins, fullDeck, rngFor, shuffledDeck };
+
+// ===== Cribble UI =====
+(function () {
+  const EPOCH = Date.UTC(2026, 10, 18); // Cribble #1
+  const now = new Date();
+  const DAY = Math.floor((Date.UTC(now.getFullYear(), now.getMonth(), now.getDate()) - EPOCH) / 864e5) + 1;
+  document.getElementById('dateline').innerHTML =
+    `No. ${DAY} · ${now.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })}`;
+
+  const store = {
+    get(k) { try { return JSON.parse(localStorage.getItem(k)); } catch (e) { return null; } },
+    set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} }
+  };
+  const SUIT_NAMES = ['spades', 'hearts', 'diamonds', 'clubs'];
+  const isRed = s => s === 1 || s === 2;
+  const cc = (c, withSuit = true) => {
+    const red = withSuit && c.s >= 0 && isRed(c.s);
+    return `<span class="${red ? 'r' : ''}">${RANKS[c.r]}${withSuit && c.s >= 0 ? SUITS[c.s] : ''}</span>`;
+  };
+  const cardBtn = (c, i, sel, disabled) =>
+    `<button class="card ${isRed(c.s) ? 'red' : ''}" data-i="${i}" aria-pressed="${!!sel}" ${disabled ? 'disabled' : ''} aria-label="${RANKS[c.r]} of ${SUIT_NAMES[c.s]}"><span class="cr">${RANKS[c.r]}</span><span class="cs">${SUITS[c.s]}</span></button>`;
+  const handRow = (cards, selIdx = [], disabled = false) =>
+    `<div class="hand">${cards.slice(0, 4).map((c, i) => cardBtn(c, i, selIdx.includes(i), disabled)).join('')}<div class="cutgap"></div><div class="cutwrap">${cardBtn(cards[4], 4, selIdx.includes(4), disabled)}<small>Cut</small></div></div>`;
+  const TYPE_NAME = { fifteen: 'Fifteen', pair: 'Pair', run: 'Run', flush: 'Flush', nobs: 'His nobs' };
+  function itemLabel(it, cards, withSuit) {
+    let name = TYPE_NAME[it.type];
+    if (it.type === 'run') name = `Run of ${it.idx.length}`;
+    if (it.type === 'flush') name = `${it.idx.length}-card flush`;
+    return `<span>${name} · <span class="cc">${it.idx.map(i => cc(cards[i], withSuit)).join(' ')}</span></span><b>${it.pts}</b>`;
+  }
+  const itemsList = (items, cards, withSuit, cls = () => '') =>
+    `<ul class="items">${items.map(it => `<li class="${cls(it)}">${itemLabel(it, cards, withSuit)}</li>`).join('')}</ul>`;
+  async function copyText(text, host, btn) {
+    if (!text) return;
+    if (navigator.share) {
+      try { await navigator.share({ text }); return; } catch (e) { if (e && e.name === 'AbortError') return; }
+    }
+    try {
+      await navigator.clipboard.writeText(text);
+      if (btn) { const o = btn.textContent; btn.textContent = 'Copied'; setTimeout(() => (btn.textContent = o), 1500); }
+    } catch (e) {
+      host.innerHTML = `<textarea class="sharebox" id="share-${Math.random().toString(36).slice(2)}" readonly></textarea>`;
+      const ta = host.querySelector('textarea'); ta.value = text; ta.select();
+    }
+  }
+  function toast(sec, msg) {
+    const t = sec.querySelector('.toast'); if (!t) return;
+    t.textContent = msg; clearTimeout(t._h); t._h = setTimeout(() => (t.textContent = ''), 2600);
+  }
+  const fresh = (p) => `${p}-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+
+  const WU_LABEL = ['Guess the Hand', 'Toss of the Day', 'Muggins'];
+  const badge = g => g.warmup ? `<span class="badge">Warm-up ${g.warmup} of 3 · unscored</span>` : g.practice ? '<span class="badge">Practice</span>' : '';
+  function doneBtns(g, pLabel, tLabel) {
+    if (g.warmup) return `<div class="btns"><button class="btn" data-act="wu-next">${g.warmup < 3 ? `Next warm-up: ${WU_LABEL[g.warmup]}` : 'Finish warm-up'}</button><button class="btn ghost" data-act="copy">Share result</button></div>`;
+    return `<div class="btns"><button class="btn" data-act="copy">Share result</button>${g.practice ? '' : '<button class="btn ghost" data-act="share-all">Share all of today</button>'}<button class="btn ghost" data-act="practice">${pLabel}</button>${g.practice ? `<button class="btn ghost" data-act="today">${tLabel}</button>` : ''}</div>`;
+  }
+
+  // ---------- Stats (daily puzzles only) ----------
+  const STATS_KEY = 'cribble:stats:v2';
+  const loadStats = () => store.get(STATS_KEY) || {};
+  function record(key, win, extra) {
+    const S = loadStats();
+    const s = S[key] || { played: 0, wins: 0, streak: 0, best: 0, last: 0, lastWin: 0, dist: {} };
+    if (s.last === DAY) return;
+    s.played++; s.last = DAY;
+    if (win) { s.wins++; s.streak = s.lastWin === DAY - 1 ? s.streak + 1 : 1; s.lastWin = DAY; s.best = Math.max(s.best, s.streak); }
+    else s.streak = 0;
+    if (extra) extra(s);
+    S[key] = s;
+    const A = S._all || { days: 0, streak: 0, best: 0, last: 0 };
+    if (A.last !== DAY) { A.days++; A.streak = A.last === DAY - 1 ? A.streak + 1 : 1; A.best = Math.max(A.best, A.streak); A.last = DAY; }
+    S._all = A;
+    store.set(STATS_KEY, S);
+  }
+  function recordGuess(g) {
+    if (g.practice || !g.done) return;
+    record('guess-' + g.mode, g.won, s => { if (g.won) s.dist[g.guesses.length] = (s.dist[g.guesses.length] || 0) + 1; });
+  }
+  function recordToss(t) {
+    if (t.practice || !t.analysis) return;
+    const Rz = tossResult(t);
+    record('toss', Rz.delta < 0.005, s => { s.sum = (s.sum || 0) + Rz.rank; });
+  }
+  function recordMg(m) {
+    if (m.practice || !m.done) return;
+    const clean = foundPts(m) >= m.missedPts, sec = mgSeconds(m);
+    record('muggins', clean, s => { if (clean) s.bestTime = s.bestTime == null ? sec : Math.min(s.bestTime, sec); });
+  }
+
+  // ---------- Guess the Hand ----------
+  const secG = document.getElementById('mode-guess');
+  const CR = { mode: store.get('cribble:lastmode') || 'easy', games: {} };
+  const crKey = m => `cribble:v3:${DAY}:${m}`;
+  function newCr(mode, practice, keyOverride) {
+    const key = keyOverride || (practice ? fresh('practice-' + mode) : `cribble-${mode}-${DAY}`);
+    const p = genCribble(key, mode === 'hard');
+    const its = scoreItems(p.cards);
+    const fl = its.find(i => i.type === 'flush');
+    return { mode, key, practice, answer: p.cards, target: p.score, ansFlush: fl ? fl.pts : 0, ansNobs: its.some(i => i.type === 'nobs'),
+      guesses: [], current: [], cf: 0, cn: false, done: false, won: false };
+  }
+  function loadCr(mode) {
+    const g = newCr(mode, false);
+    const s = store.get(crKey(mode));
+    if (s && s.key === g.key) Object.assign(g, { guesses: s.guesses || [], done: !!s.done, won: !!s.won });
+    return g;
+  }
+  const saveCr = g => { if (!g.practice) store.set(crKey(g.mode), { key: g.key, guesses: g.guesses, done: g.done, won: g.won }); };
+  CR.games.easy = loadCr('easy');
+  CR.games.hard = loadCr('hard');
+
+  function tileHTML(c, state, hard, flip, k) {
+    return `<div class="tile ${state} ${flip ? 'flip' : ''}" ${flip ? `style="animation-delay:${k * 90}ms"` : ''}>${RANKS[c.r]}</div>`;
+  }
+  function crShare(g) {
+    const em = { green: '🟩', yellow: '🟨', gray: '⬜', extra: '⬜' };
+    const lines = g.guesses.map(G => `${G.fb.slice(0, 4).map(f => em[f]).join('')} ${em[G.fb[4]]}${g.mode === 'hard' ? ` F${em[G.ffb]} N${em[G.nfb]}` : ''} ${G.score}`);
+    const head = g.practice ? 'Cribble Practice' : `Cribble #${DAY}`;
+    return `${head} ${g.mode === 'hard' ? 'Hard' : 'Easy'} 🃏 ${g.won ? g.guesses.length : 'X'}/6\nTarget ${g.target}\n${lines.join('\n')}`;
+  }
+  function renderGuess(flipRow = -1) {
+    const g = CR.games[CR.mode];
+    const hard = g.mode === 'hard';
+    const gs = g.guesses.map(x => x.score);
+    let streets = '';
+    for (let grp = 0; grp < 6; grp++) {
+      let h = '';
+      for (let k = 0; k < 5; k++) {
+        const n = grp * 5 + k;
+        const isT = n === g.target, isG = gs.includes(n), latest = gs.length && gs[gs.length - 1] === n;
+        h += `<span class="hole ${isT ? 't' : isG ? 'g' : ''} ${latest && !isT ? 'latest' : ''}" title="${n}"></span>`;
+      }
+      streets += `<div class="street"><div class="holes">${h}</div><small>${grp * 5}</small></div>`;
+    }
+    let rows = '';
+    for (let i = 0; i < 6; i++) {
+      const G = g.guesses[i];
+      const cells = [];
+      let sc = '';
+      if (G) {
+        G.cards.forEach((c, k) => cells.push(tileHTML(c, G.fb[k], hard, i === flipRow, k)));
+        sc = hard ? `${G.score}<span class="flags"><i class="${G.ffb}" title="Flush ${G.flush ? G.flush + '-card' : 'off'}">${G.flush ? 'F' + G.flush : 'F'}</i><i class="${G.nfb}" title="Nobs ${G.nobs ? 'on' : 'off'}">N</i></span>` : `${G.score}<small>pts</small>`;
+      }
+      else if (i === g.guesses.length && !g.done) for (let k = 0; k < 5; k++) { const c = g.current[k]; cells.push(c ? tileHTML(c, 'fill', hard) : '<div class="tile"></div>'); }
+      else for (let k = 0; k < 5; k++) cells.push('<div class="tile"></div>');
+      rows += `<div class="row">${cells.slice(0, 4).join('')}<div class="sep"></div>${cells[4]}<div class="sc">${sc}</div></div>`;
+    }
+    // key states by rank
+    const ks = {};
+    g.guesses.forEach(G => G.cards.forEach((c, k) => {
+      const f = G.fb[k];
+      if (f === 'green') ks[c.r] = 'g';
+      else if (f === 'yellow' && ks[c.r] !== 'g') ks[c.r] = 'y';
+      else if (f === 'gray' && !ks[c.r]) ks[c.r] = 'x';
+    }));
+    const dis = g.done ? 'disabled' : '';
+    const rk = r => `<button class="key ${ks[r] || ''}" data-r="${r}" ${dis} aria-label="${RANKS[r]}">${RANKS[r]}</button>`;
+    let kb = `<div class="krow k7">${[1, 2, 3, 4, 5, 6, 7].map(rk).join('')}</div>
+      <div class="krow k6"><button class="key wide" data-act="enter" ${dis}>Enter</button>${[8, 9, 10, 11, 12, 13].map(rk).join('')}<button class="key wide" data-act="del" ${dis} aria-label="Delete">Del</button></div>`;
+    if (hard) kb = `<div class="toggles">
+        <button class="tog ${g.cf ? 'on' : ''}" data-act="flush" aria-pressed="${!!g.cf}">Flush <b>${g.cf ? g.cf + '-card' : 'Off'}</b></button>
+        <button class="tog ${g.cn ? 'on' : ''}" data-act="nobs" aria-pressed="${g.cn}">His nobs <b>${g.cn ? 'On' : 'Off'}</b></button>
+      </div>` + kb;
+
+    let result = '';
+    if (g.done) {
+      const items = scoreItems(g.answer, { ranksOnly: !hard });
+      result = `<div class="panel">
+        <h2>${g.won ? `Counted in ${g.guesses.length} of 6` : 'Out of guesses'}</h2>
+        <p class="note">${g.won ? 'That’s the hand.' : 'Here’s the hand you were after.'}</p>
+        ${handRow(g.answer, [], true)}
+        ${itemsList(items, g.answer, hard)}
+        ${doneBtns(g, 'Practice hand', 'Today’s puzzle')}
+        <div class="sharehost"></div>
+      </div>`;
+    }
+    secG.innerHTML = `
+      <div class="seg" role="group" aria-label="Difficulty"><button data-mode="easy" aria-pressed="${!hard}">Easy</button><button data-mode="hard" aria-pressed="${hard}">Hard</button></div>
+      <div class="target">
+        <div class="big"><span class="num">${g.target}</span><span class="lab">points in ${g.practice ? 'this practice hand' : 'today’s hand'} ${badge(g)}</span></div>
+        <div class="track" aria-label="Peg track: brass is the target, ivory pegs are your guesses">${streets}</div>
+        <p class="note">${hard ? 'Hard: this hand may have a flush or his nobs. Use the toggles to say whether you think it does.' : 'Easy: ranks only. Today’s Easy hand has no flush and no nobs.'}</p>
+      </div>
+      <div class="board">
+        <div class="rowlabels"><span class="h">Hand</span><span class="c">Cut</span><span class="p">Pts</span></div>
+        ${rows}
+      </div>
+      <div class="toast" role="status" aria-live="polite"></div>
+      ${g.done ? result : `<div class="kb">${kb}</div>`}
+      <details class="how"><summary>How to play</summary><ul>
+        <li>The hidden hand is 4 cards plus the cut, and you’re told what it scores.</li>
+        <li>Each guess is a full hand: tap 4 hand cards, then the cut. Suits don’t matter.</li>
+        ${hard ? '<li>Hard hands can include a flush or his nobs. Tap Flush to cycle Off, 4-card (hand only, +4) and 5-card (cut matches too, +5). Tap His nobs to claim the jack in your hand matches the cut’s suit (+1, needs a jack in the hand). Each toggle turns green if your call is right and gray if it’s wrong.</li>' : ''}
+        <li><b>Green</b>: the right rank in the right spot (hand or cut). Order within the hand doesn’t matter.</li>
+        <li><b>Yellow</b>: that rank is in the answer, but in the other spot.</li>
+        <li><b>Gray</b>: that rank isn’t in the answer.</li>
+        <li><b>Gray with ×</b>: that rank is in the answer, but you’ve played more copies of it than the hand has. Watch for this with pairs and double runs.</li>
+        <li>Each guess shows its own score and puts an ivory peg on the track, so you can see whether you’re getting closer to the brass peg.</li>
+        <li>Six guesses. One Easy and one Hard puzzle a day; practice hands are unlimited.</li>
+      </ul></details>`;
+  }
+  function crPressRank(r) {
+    const g = CR.games[CR.mode]; if (g.done) return;
+    if (g.current.length >= 5) return toast(secG, 'Hand is full. Tap Enter, or Del to change it.');
+    g.current.push({ r, s: -1 });
+    renderGuess();
+  }
+  function crToggle(which) {
+    const g = CR.games[CR.mode]; if (g.done || g.mode !== 'hard') return;
+    if (which === 'flush') g.cf = g.cf === 0 ? 4 : g.cf === 4 ? 5 : 0;
+    else g.cn = !g.cn;
+    renderGuess();
+  }
+  function crDel() { const g = CR.games[CR.mode]; if (g.done) return; g.current.pop(); renderGuess(); }
+  function crEnter() {
+    const g = CR.games[CR.mode]; if (g.done) return;
+    const hard = g.mode === 'hard';
+    if (g.current.length < 5) return toast(secG, 'Fill all five: 4 hand cards and the cut.');
+    const cnt = {};
+    for (const c of g.current) cnt[c.r] = (cnt[c.r] || 0) + 1;
+    if (Object.values(cnt).some(n => n > 4)) return toast(secG, 'A deck only has four of each rank.');
+    if (hard && g.cn && !g.current.slice(0, 4).some(c => c.r === 11)) return toast(secG, 'His nobs needs a jack in the hand (not the cut).');
+    const cards = g.current.map(c => ({ r: c.r, s: -1 }));
+    let sc = score(cards, { ranksOnly: true });
+    const fb = feedback(cards, g.answer, false);
+    const G = { cards, fb, score: sc };
+    if (hard) {
+      G.flush = g.cf; G.nobs = g.cn;
+      G.score = sc = sc + g.cf + (g.cn ? 1 : 0);
+      G.ffb = g.cf === g.ansFlush ? 'green' : 'gray';
+      G.nfb = g.cn === g.ansNobs ? 'green' : 'gray';
+    }
+    g.guesses.push(G);
+    g.current = [];
+    if (fb.every(f => f === 'green') && (!hard || (G.ffb === 'green' && G.nfb === 'green'))) { g.done = true; g.won = true; }
+    else if (g.guesses.length >= 6) g.done = true;
+    saveCr(g);
+    if (g.done) recordGuess(g);
+    renderGuess(g.guesses.length - 1);
+    if (!g.done) toast(secG, sc === g.target ? 'Same score, different hand.' : sc > g.target ? `${sc} is too many.` : `${sc} is too few.`);
+  }
+  secG.addEventListener('click', e => {
+    const b = e.target.closest('button'); if (!b) return;
+    if (b.dataset.mode) { CR.mode = b.dataset.mode; store.set('cribble:lastmode', CR.mode); return renderGuess(); }
+    if (b.dataset.r) return crPressRank(+b.dataset.r);
+    const a = b.dataset.act;
+    if (a === 'flush' || a === 'nobs') crToggle(a);
+    else if (a === 'enter') crEnter();
+    else if (a === 'del') crDel();
+    else if (a === 'copy') copyText(crShare(CR.games[CR.mode]), secG.querySelector('.sharehost'), b);
+    else if (a === 'practice') { CR.games[CR.mode] = newCr(CR.mode, true); renderGuess(); }
+    else if (a === 'today') { CR.games[CR.mode] = loadCr(CR.mode); renderGuess(); }
+  });
+  document.addEventListener('keydown', e => {
+    if (ACTIVE !== 'guess' || e.metaKey || e.ctrlKey || e.altKey || !overlay.hidden) return;
+    if (e.target.closest && e.target.closest('textarea,input')) return;
+    const k = e.key.toLowerCase();
+    const map = { a: 1, '1': 10, '0': 10, t: 10, j: 11, q: 12, k: 13 };
+    if (k === 'enter') { e.preventDefault(); crEnter(); }
+    else if (k === 'backspace') crDel();
+    else if (map[k]) crPressRank(map[k]);
+    else if (/^[2-9]$/.test(k)) crPressRank(+k);
+    else if (k === 'f') crToggle('flush');
+    else if (k === 'n') crToggle('nobs');
+  });
+
+  // ---------- Toss of the Day ----------
+  const secT = document.getElementById('mode-toss');
+  const tsKey = () => `cribble:v2:${DAY}:toss`;
+  function newToss(practice, keyOverride) {
+    const key = keyOverride || (practice ? fresh('practice-toss') : `toss-${DAY}`);
+    const p = genToss(key);
+    return { key, practice, six: p.six, dealer: p.dealer, sel: [], done: false, analysis: null };
+  }
+  function loadToss() {
+    const t = newToss(false);
+    const s = store.get(tsKey());
+    if (s && s.key === t.key) Object.assign(t, { sel: s.sel || [], done: !!s.done, analysis: s.analysis || null });
+    return t;
+  }
+  const saveToss = t => { if (!t.practice) store.set(tsKey(), { key: t.key, sel: t.sel, done: t.done, analysis: t.analysis }); };
+  let TS = loadToss();
+  const f2 = n => n.toFixed(2);
+  function tossGrade(delta) {
+    if (delta < 0.005) return ['🟩', 'Perfect toss'];
+    if (delta < 0.5) return ['🟨', 'Close to best'];
+    if (delta < 1.5) return ['🟧', 'Playable'];
+    return ['🟥', 'Costly'];
+  }
+  function tossResult(t) {
+    const A = t.analysis;
+    const sel = [...t.sel].sort((a, b) => a - b);
+    const yi = A.findIndex(a => a.toss[0] === sel[0] && a.toss[1] === sel[1]);
+    const you = A[yi];
+    const rank = 1 + A.filter(a => a.net > you.net + 0.005).length;
+    const delta = A[0].net - you.net;
+    return { A, yi, you, rank, delta, grade: tossGrade(delta) };
+  }
+  function tossShare(t) {
+    const R = tossResult(t);
+    const head = t.practice ? 'Cribble Toss Practice' : `Cribble Toss #${DAY}`;
+    return `${head} 🃏 ${R.grade[0]} ${R.rank}/15\n${t.dealer ? 'Dealer' : 'Pone'} · ${R.delta < 0.005 ? 'best toss' : `−${f2(R.delta)} pts vs best`}`;
+  }
+  const pairLabel = (six, toss) => `<span class="cc">${toss.map(i => cc(six[i])).join(' ')}</span>`;
+  function renderToss() {
+    const t = TS;
+    let body = '';
+    if (t.done && !t.analysis) body = `<div class="panel"><p>Counting every cut and every crib your opponent could make…</p></div>`;
+    else if (t.done) {
+      const R = tossResult(t);
+      const sign = t.dealer ? '+' : '−';
+      const shown = R.A.slice(0, 5).map((a, i) => ({ a, i }));
+      if (R.yi >= 5) shown.push({ a: R.you, i: R.yi });
+      body = `<div class="panel">
+        <h2>${R.grade[0]} ${R.grade[1]}</h2>
+        <p>Your toss ranks <b>${R.rank} of 15</b>${R.delta < 0.005 ? ', the best throw available.' : `, ${f2(R.delta)} points behind the best throw.`}</p>
+        <div style="overflow-x:auto"><table class="ev">
+          <thead><tr><th>Throw</th><th>Hand</th><th>Crib</th><th>Net</th></tr></thead>
+          <tbody>${shown.map(({ a, i }) => `<tr class="${i === R.yi ? 'you' : ''}"><td>${pairLabel(t.six, a.toss)}${i === R.yi ? ' · you' : ''}</td><td>${f2(a.hand)}</td><td>${sign}${f2(a.crib)}</td><td>${f2(a.net)}</td></tr>`).join('')}</tbody>
+        </table></div>
+        <p class="note">Hand is your average over all 46 cuts. Crib is the average crib over every cut and every pair your opponent could throw (treated as random). Pegging isn’t counted.</p>
+        ${doneBtns(t, 'Practice deal', 'Today’s deal')}
+        <div class="sharehost"></div>
+      </div>`;
+    } else {
+      body = `<div class="btns"><button class="btn" data-act="throw" ${t.sel.length === 2 ? '' : 'disabled'}>Throw ${t.sel.length === 2 ? 'these 2' : '2 cards'} to the crib</button>${t.sel.length ? '<button class="btn ghost" data-act="clear">Clear</button>' : ''}</div>`;
+    }
+    secT.innerHTML = `
+      <div class="target">
+        <div class="big"><span class="lab" style="font-size:22px">${t.dealer ? 'You’re the dealer.' : 'You’re the pone.'} ${badge(t)}</span></div>
+        <p class="note">${t.dealer ? 'The crib is yours, so what you throw counts for you.' : 'The crib is your opponent’s, so what you throw counts for them.'} Pick the two cards to throw.</p>
+      </div>
+      <div class="hand" style="padding-top:12px">${t.six.map((c, i) => cardBtn(c, i, t.sel.includes(i), t.done)).join('')}</div>
+      <div class="toast" role="status" aria-live="polite"></div>
+      ${body}
+      <details class="how"><summary>How it’s graded</summary><ul>
+        <li>You’re dealt six. Keep four, throw two to the crib.</li>
+        <li>Every one of the 15 possible throws is scored by expected points: your four-card hand averaged over all 46 cuts, plus the crib’s average if you’re dealer, or minus it if you’re pone.</li>
+        <li>The crib average covers every cut and every pair your opponent could throw, treated as random. Pegging isn’t part of the grade.</li>
+        <li>One deal a day, plus unlimited practice deals.</li>
+      </ul></details>`;
+  }
+  secT.addEventListener('click', e => {
+    const b = e.target.closest('button'); if (!b) return;
+    const t = TS;
+    if (b.dataset.i !== undefined && !t.done) {
+      const i = +b.dataset.i;
+      if (t.sel.includes(i)) t.sel = t.sel.filter(x => x !== i);
+      else if (t.sel.length < 2) t.sel.push(i);
+      else return toast(secT, 'You throw exactly two. Tap a raised card to put it back.');
+      return renderToss();
+    }
+    const a = b.dataset.act;
+    if (a === 'clear') { t.sel = []; renderToss(); }
+    else if (a === 'throw' && t.sel.length === 2) {
+      t.sel.sort((x, y) => x - y); t.done = true; renderToss();
+      setTimeout(() => { t.analysis = tossAnalysis(t.six, t.dealer); saveToss(t); recordToss(t); if (TS === t) renderToss(); }, 40);
+    }
+    else if (a === 'copy') copyText(tossShare(t), secT.querySelector('.sharehost'), b);
+    else if (a === 'practice') { TS = newToss(true); renderToss(); }
+    else if (a === 'today') { TS = loadToss(); renderToss(); }
+  });
+
+  // ---------- Muggins ----------
+  const secM = document.getElementById('mode-muggins');
+  const mgKey = () => `cribble:v2:${DAY}:muggins`;
+  function newMg(practice, keyOverride) {
+    const key = keyOverride || (practice ? fresh('practice-muggins') : `muggins-${DAY}`);
+    const p = genMuggins(key);
+    return Object.assign({ key, practice, sel: [], found: [], misses: 0, started: null, elapsed: null, done: false }, p);
+  }
+  function loadMg() {
+    const m = newMg(false);
+    const s = store.get(mgKey());
+    if (s && s.key === m.key) Object.assign(m, { found: s.found || [], misses: s.misses || 0, started: s.started || null, elapsed: s.elapsed ?? null, done: !!s.done });
+    return m;
+  }
+  const saveMg = m => { if (!m.practice) store.set(mgKey(), { key: m.key, found: m.found, misses: m.misses, started: m.started, elapsed: m.elapsed, done: m.done }); };
+  let MG = loadMg();
+  const foundPts = m => m.found.reduce((a, k) => a + m.items[k].pts, 0);
+  const clock = s => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
+  const mgSeconds = m => m.elapsed != null ? m.elapsed : m.started ? Math.floor((Date.now() - m.started) / 1000) : 0;
+  function mgShare(m) {
+    const head = m.practice ? 'Cribble Muggins Practice' : `Cribble Muggins #${DAY}`;
+    const fp = foundPts(m);
+    return `${head} 🃏 ${fp === m.missedPts ? '✅' : '❌'} ${fp}/${m.missedPts} pts\n⏱ ${clock(mgSeconds(m))} · ${m.misses} wrong call${m.misses === 1 ? '' : 's'}`;
+  }
+  function renderMuggins() {
+    const m = MG;
+    const claimed = m.items.filter((_, k) => !m.missed.includes(k));
+    const fp = foundPts(m);
+    const counted = m.total - m.missedPts;
+    let tail;
+    if (m.done) {
+      const left = m.missed.filter(k => !m.found.includes(k)).map(k => m.items[k]);
+      tail = `<div class="panel">
+        <h2>${fp === m.missedPts ? `Muggins! You took all ${m.missedPts}` : `You took ${fp} of ${m.missedPts}`}</h2>
+        <p>The ${m.crib ? 'crib' : 'hand'} was worth <b>${m.total}</b>. Time ${clock(mgSeconds(m))}, ${m.misses} wrong call${m.misses === 1 ? '' : 's'}.</p>
+        ${left.length ? `<p class="note">Still on the table:</p>${itemsList(left, m.cards, true, () => 'missed')}` : ''}
+        ${doneBtns(m, 'Practice hand', 'Today’s hand')}
+        <div class="sharehost"></div>
+      </div>`;
+    } else {
+      tail = `<div class="btns"><button class="btn" data-act="call" ${m.sel.length >= 2 ? '' : 'disabled'}>Call it</button><button class="btn ghost" data-act="clear" ${m.sel.length ? '' : 'disabled'}>Clear</button><button class="btn ghost" data-act="done">I’m done</button></div>`;
+    }
+    secM.innerHTML = `
+      <div class="target">
+        <div class="big"><span class="num">${counted}</span><span class="lab">is what your opponent counted for their ${m.crib ? 'crib' : 'hand'} ${badge(m)}</span></div>
+        <p class="note">They missed <b style="color:var(--brass)">${m.missedPts} point${m.missedPts === 1 ? '' : 's'}</b>. Tap the cards in each missed combo and call it.</p>
+      </div>
+      <div style="padding-top:12px">${handRow(m.cards, m.sel, m.done)}</div>
+      <div class="stats"><span>Found <b>${fp}</b> / ${m.missedPts} pts</span><span>Time <b id="mg-clock">${clock(mgSeconds(m))}</b></span><span>Wrong calls <b>${m.misses}</b></span></div>
+      <div class="toast" role="status" aria-live="polite"></div>
+      ${tail}
+      ${m.found.length ? `<div class="panel"><p class="note">You called</p>${itemsList(m.found.map(k => m.items[k]), m.cards, true, () => 'found')}</div>` : ''}
+      <div class="panel"><p class="note">Their count</p>${itemsList(claimed, m.cards, true)}</div>
+      <details class="how"><summary>How to play</summary><ul>
+        <li>Your opponent counted their ${m.crib ? 'crib' : 'hand'} and missed some points. Under muggins, you take them.</li>
+        <li>Tap the cards that make one scoring combo, then Call it: a fifteen, a pair, a run, a flush, or his nobs (the jack in hand matching the cut’s suit).</li>
+        <li>For a run, select every card in it. Each fifteen, pair and run counts on its own, same as a normal count.</li>
+        <li>${m.crib ? 'This is a crib, so a flush needs all five cards, cut included.' : 'This is a hand, so four hand cards of one suit make a flush; the cut makes it five.'}</li>
+        <li>The clock starts at your first tap. Wrong calls are tallied.</li>
+      </ul></details>`;
+  }
+  function mgFinish(m) { m.done = true; m.elapsed = mgSeconds(m); m.sel = []; saveMg(m); recordMg(m); renderMuggins(); }
+  function mgCall() {
+    const m = MG;
+    const s = [...m.sel].sort((a, b) => a - b);
+    const key = s.join(',');
+    const matches = m.items.map((it, k) => ({ it, k })).filter(({ it }) => it.idx.join(',') === key).map(x => x.k);
+    m.sel = [];
+    if (!matches.length) {
+      const ranks = s.map(i => m.cards[i].r).sort((a, b) => a - b);
+      const consecutive = ranks.length >= 3 && ranks.every((r, i) => i === 0 || r === ranks[i - 1] + 1);
+      m.misses++; saveMg(m); renderMuggins();
+      return toast(secM, consecutive ? 'That run is part of a longer one. Select every card in it.' : 'No points in those cards.');
+    }
+    const newly = matches.filter(k => m.missed.includes(k) && !m.found.includes(k));
+    if (newly.length) {
+      m.found.push(...newly);
+      const pts = newly.reduce((a, k) => a + m.items[k].pts, 0);
+      if (foundPts(m) >= m.missedPts) return mgFinish(m);
+      saveMg(m); renderMuggins(); return toast(secM, `Muggins! +${pts}`);
+    }
+    renderMuggins();
+    toast(secM, matches.some(k => m.found.includes(k)) ? 'You already called that.' : 'They already counted that one.');
+  }
+  secM.addEventListener('click', e => {
+    const b = e.target.closest('button'); if (!b) return;
+    const m = MG;
+    if (b.dataset.i !== undefined && !m.done) {
+      if (!m.started) { m.started = Date.now(); saveMg(m); }
+      const i = +b.dataset.i;
+      m.sel = m.sel.includes(i) ? m.sel.filter(x => x !== i) : [...m.sel, i];
+      return renderMuggins();
+    }
+    const a = b.dataset.act;
+    if (a === 'call') mgCall();
+    else if (a === 'clear') { m.sel = []; renderMuggins(); }
+    else if (a === 'done') { if (!m.started) m.started = Date.now(); mgFinish(m); }
+    else if (a === 'copy') copyText(mgShare(m), secM.querySelector('.sharehost'), b);
+    else if (a === 'practice') { MG = newMg(true); renderMuggins(); }
+    else if (a === 'today') { MG = loadMg(); renderMuggins(); }
+  });
+  setInterval(() => {
+    if (ACTIVE !== 'muggins' || MG.done || !MG.started) return;
+    const el = document.getElementById('mg-clock'); if (el) el.textContent = clock(mgSeconds(MG));
+  }, 1000);
+
+  // ---------- Sheets: welcome, tutorial, stats ----------
+  const overlay = document.getElementById('overlay'), sheet = document.getElementById('sheet');
+  function openSheet(html) { sheet.innerHTML = html; overlay.hidden = false; sheet.scrollTop = 0; const f = sheet.querySelector('button'); if (f) f.focus(); }
+  function closeSheet() { overlay.hidden = true; }
+  overlay.addEventListener('click', e => { if (e.target === overlay) closeSheet(); });
+  document.addEventListener('keydown', e => { if (e.key === 'Escape' && !overlay.hidden) closeSheet(); });
+  const closeX = '<button class="xbtn" data-sheet="close" aria-label="Close">×</button>';
+
+  function welcomeHTML() {
+    return `<h2 id="sheet-title">First time playing Cribble?</h2>
+      <p>Cribble is three daily cribbage puzzles. If you’re new, a short tutorial walks through counting a hand and each mode. Then you get three warm-up games that don’t count toward your stats.</p>
+      <div class="btns"><button class="btn" data-sheet="tut">Yes, show me how</button><button class="btn ghost" data-sheet="skip">No, I’ve played</button></div>`;
+  }
+  const EX = [{ r: 4, s: 0 }, { r: 5, s: 1 }, { r: 5, s: 3 }, { r: 6, s: 2 }, { r: 11, s: 1 }];
+  const EXG = [{ r: 4, s: -1 }, { r: 4, s: -1 }, { r: 5, s: -1 }, { r: 9, s: -1 }, { r: 11, s: -1 }];
+  const TUT = [
+    () => `<h2 id="sheet-title">Counting a hand</h2>
+      <p>Every Cribble puzzle runs on the cribbage count. A hand is your 4 cards plus the cut.</p>
+      ${handRow(EX, [], true)}
+      ${itemsList(scoreItems(EX), EX, true)}
+      <p><b>Total: ${score(EX)}</b></p>
+      <ul class="tl">
+        <li><b>Fifteens</b>: any cards adding to 15 score 2. Face cards count 10.</li>
+        <li><b>Pairs</b>: 2 per pair. Three of a kind is 3 pairs (6).</li>
+        <li><b>Runs</b>: 3 or more in sequence, 1 per card. With a pair inside, like 4-5-5-6, each run counts separately.</li>
+        <li><b>Flush</b>: 4 hand cards of one suit score 4, or 5 if the cut matches. A crib needs all 5.</li>
+        <li><b>His nobs</b>: a jack in hand matching the cut’s suit scores 1.</li>
+      </ul>`,
+    () => {
+      const fb = feedback(EXG, EX, false);
+      return `<h2 id="sheet-title">Guess the Hand</h2>
+      <p>You’re told a hidden hand’s score and get 6 guesses to find it. Each guess is a full hand: 4 cards, then the cut. Suits don’t matter. If the answer were the hand from the last step, this guess would light up like so:</p>
+      <div class="row">${EXG.slice(0, 4).map((c, k) => tileHTML(c, fb[k], false)).join('')}<div class="sep"></div>${tileHTML(EXG[4], fb[4], false)}<div class="sc">${score(EXG, { ranksOnly: true })}<small>pts</small></div></div>
+      <ul class="tl">
+        <li><span class="sw green"></span><b>Green</b>: right rank, right spot (hand or cut). Order in the hand doesn’t matter.</li>
+        <li><span class="sw yellow"></span><b>Yellow</b>: the rank is there, but in the other spot.</li>
+        <li><span class="sw gray"></span><b>Gray</b>: that rank isn’t in the hand.</li>
+        <li><span class="sw extra"></span><b>Gray with ×</b>: the rank is there, but not this many times. Here the hand has one 4, not two.</li>
+      </ul>
+      <p>Your guess’s own score shows on the right and puts an ivory peg on the track. The brass peg is the target.</p>`;
+    },
+    () => `<h2 id="sheet-title">Easy and Hard</h2>
+      <p><b>Easy</b> hands never have a flush or his nobs, so it’s all ranks.</p>
+      <p><b>Hard</b> hands might. Before you enter a guess, set the two toggles to say what you think:</p>
+      <div class="toggles" aria-hidden="true"><span class="tog on">Flush <b>4-card</b></span><span class="tog">His nobs <b>Off</b></span></div>
+      <p>Flush cycles Off, 4-card and 5-card. His nobs needs a jack in your hand. After each guess, a small <b>F</b> and <b>N</b> beside the score turn green if your call was right. To win Hard, every card and both calls must be green.</p>`,
+    () => `<h2 id="sheet-title">Toss of the Day</h2>
+      <p>You’re dealt six cards and keep four. Tap the two you’d throw to the crib.</p>
+      <ul class="tl">
+        <li>As <b>dealer</b> the crib is yours, so points you throw help you.</li>
+        <li>As <b>pone</b> the crib is your opponent’s, so points you throw help them.</li>
+        <li>All 15 possible throws are ranked by expected points, over every cut and every crib your opponent could add. You see where yours ranks and how many points it cost.</li>
+      </ul>`,
+    () => `<h2 id="sheet-title">Muggins</h2>
+      <p>Your opponent counted their hand and missed some points. In muggins, you get to take them.</p>
+      <ul class="tl">
+        <li>You see their count and how many points they missed.</li>
+        <li>Tap the cards in one scoring combo, then <b>Call it</b>. For a run, select every card in it.</li>
+        <li>The clock starts at your first tap, and wrong calls are tallied.</li>
+      </ul>`,
+    () => `<h2 id="sheet-title">Warm up</h2>
+      <p>Play three warm-up games, one of each mode. They don’t count toward your stats, so take your time.</p>
+      <div class="btns"><button class="btn" data-sheet="warmup">Start warm-up</button><button class="btn ghost" data-sheet="today">Skip to today’s puzzles</button></div>`
+  ];
+  function tutHTML(i) {
+    const last = i === TUT.length - 1;
+    return `${closeX}<div class="tstep">Step ${i + 1} of ${TUT.length}</div>${TUT[i]()}
+      <div class="tnav"><button class="btn ghost" data-sheet="back" data-i="${i}" ${i === 0 ? 'disabled' : ''}>Back</button>
+      <div class="dots">${TUT.map((_, k) => `<span class="${k === i ? 'on' : ''}"></span>`).join('')}</div>
+      ${last ? '<span style="width:64px"></span>' : `<button class="btn" data-sheet="next" data-i="${i}">Next</button>`}</div>`;
+  }
+
+  // warm-up flow
+  function startWarmup() {
+    closeSheet();
+    CR.mode = 'easy';
+    const g = newCr('easy', true, 'warmup-guess'); g.warmup = 1; CR.games.easy = g;
+    renderGuess(); go('guess');
+  }
+  function wuNext(from) {
+    if (from === 1) { TS = newToss(true, 'warmup-toss'); TS.warmup = 2; renderToss(); go('toss'); }
+    else if (from === 2) { MG = newMg(true, 'warmup-muggins'); MG.warmup = 3; renderMuggins(); go('muggins'); }
+    else openSheet(`${closeX}<h2 id="sheet-title">You’re warmed up</h2><p>Today’s puzzles count toward your stats and streaks. There’s one Easy and one Hard Guess the Hand, one Toss and one Muggins each day.</p>
+      <div class="btns"><button class="btn" data-sheet="today">Play today’s puzzles</button></div>`);
+  }
+  function playToday() {
+    closeSheet();
+    CR.games.easy = loadCr('easy'); CR.games.hard = loadCr('hard'); TS = loadToss(); MG = loadMg();
+    renderGuess(); renderToss(); renderMuggins(); go('guess');
+  }
+
+  // stats
+  function todayShare() {
+    const lines = [];
+    ['easy', 'hard'].forEach(md => { const g = loadCr(md); if (g.done) lines.push(`Guess ${md === 'hard' ? 'Hard' : 'Easy'} ${g.won ? g.guesses.length : 'X'}/6`); });
+    const t = loadToss(); if (t.done && t.analysis) { const Rz = tossResult(t); lines.push(`Toss ${Rz.grade[0]} ${Rz.rank}/15`); }
+    const m = loadMg(); if (m.done) { const fp = foundPts(m); lines.push(`Muggins ${fp >= m.missedPts ? '✅' : '❌'} ${fp}/${m.missedPts} · ${clock(mgSeconds(m))}`); }
+    return lines.length ? `Cribble #${DAY} 🃏\n${lines.join('\n')}` : null;
+  }
+  const pct = (a, b) => (b ? Math.round((100 * a) / b) + '%' : '–');
+  const curStreak = s => (s && s.lastWin >= DAY - 1 ? s.streak : 0);
+  function sblock(title, cells, extra = '') {
+    return `<div class="sblock"><h3>${title}</h3><div class="sgrid">${cells.map(([n, l]) => `<div><b>${n}</b><span>${l}</span></div>`).join('')}</div>${extra}</div>`;
+  }
+  function statsPageHTML() {
+    const S = loadStats();
+    const z = { played: 0, wins: 0, best: 0, dist: {} };
+    const A = S._all || { days: 0, streak: 0, best: 0, last: 0 };
+    const total = ['guess-easy', 'guess-hard', 'toss', 'muggins'].reduce((n, k) => n + ((S[k] || z).played), 0);
+    // today's status
+    const ge = loadCr('easy'), gh = loadCr('hard'), t0 = loadToss(), m0 = loadMg();
+    const st = (done, text) => done ? `<span class="ok">${text}</span>` : '<span class="todo">Not played</span>';
+    const tRes = t0.done && t0.analysis ? (() => { const Rz = tossResult(t0); return `${Rz.grade[0]} Rank ${Rz.rank} of 15`; })() : '';
+    const mRes = m0.done ? `${foundPts(m0)} of ${m0.missedPts} pts · ${clock(mgSeconds(m0))}` : '';
+    const todayRows = [
+      ['Guess the Hand · Easy', st(ge.done, ge.won ? `Solved in ${ge.guesses.length}` : 'Missed'), ge.done, 'easy'],
+      ['Guess the Hand · Hard', st(gh.done, gh.won ? `Solved in ${gh.guesses.length}` : 'Missed'), gh.done, 'hard'],
+      ['Toss of the Day', st(t0.done && t0.analysis, tRes), t0.done, 'toss'],
+      ['Muggins', st(m0.done, mRes), m0.done, 'muggins']
+    ];
+    const canShare = !!todayShare();
+    const gBlock = (md, title) => {
+      const s = S['guess-' + md] || z;
+      const vals = [1, 2, 3, 4, 5, 6].map(n => s.dist[n] || 0), max = Math.max(1, ...vals);
+      const bars = `<p class="note">Guesses to solve</p><div class="bars">${vals.map((v, i) => `<div class="bar"><span>${i + 1}</span><i style="width:${10 + (90 * v) / max}%">${v}</i></div>`).join('')}</div>`;
+      return sblock(title, [[s.played, 'Played'], [pct(s.wins, s.played), 'Solved'], [curStreak(s), 'Streak'], [s.best, 'Best streak']], bars);
+    };
+    const t = S.toss || z, m = S.muggins || z;
+    return `<div class="target">
+        <div class="big"><span class="num">${A.last >= DAY - 1 ? A.streak : 0}</span><span class="lab">day streak</span></div>
+        <div class="sgrid"><div><b>${A.days}</b><span>Days played</span></div><div><b>${total}</b><span>Puzzles</span></div><div><b>${A.best}</b><span>Best day streak</span></div><div><b>#${DAY}</b><span>Today</span></div></div>
+        <p class="note">A day counts toward your streak when you finish any daily puzzle.</p>
+      </div>
+      <div class="panel">
+        <h2>Today</h2>
+        <ul class="today">${todayRows.map(([n, s, done, k]) => `<li><span>${n}<br>${s}</span>${done ? '' : `<button class="btn ghost" data-go="${k}">Play</button>`}</li>`).join('')}</ul>
+        <div class="btns"><button class="btn" data-act="share-all" ${canShare ? '' : 'disabled'}>Share all of today</button></div>
+        <div class="sharehost"></div>
+      </div>
+      <div class="panel">
+        ${gBlock('easy', 'Guess the Hand · Easy')}
+        ${gBlock('hard', 'Guess the Hand · Hard')}
+        ${sblock('Toss of the Day', [[t.played, 'Played'], [pct(t.wins, t.played), 'Best toss'], [t.played ? (t.sum / t.played).toFixed(1) : '–', 'Avg rank'], [curStreak(t), 'Best-toss streak']])}
+        ${sblock('Muggins', [[m.played, 'Played'], [pct(m.wins, m.played), 'All found'], [m.bestTime != null ? clock(m.bestTime) : '–', 'Best time'], [curStreak(m), 'Streak']])}
+      </div>
+      <p class="note">Only daily puzzles count. Practice and warm-up games don’t. Stats are saved in this browser.</p>`;
+  }
+  const secS = document.getElementById('mode-stats');
+  function renderStats() { secS.innerHTML = statsPageHTML(); }
+  secS.addEventListener('click', e => {
+    const b = e.target.closest('button[data-go]'); if (!b) return;
+    const k = b.dataset.go;
+    if (k === 'easy' || k === 'hard') {
+      CR.mode = k; store.set('cribble:lastmode', k);
+      if (CR.games[k].practice) CR.games[k] = loadCr(k);
+      renderGuess(); go('guess');
+    } else if (k === 'toss') { if (TS.practice) { TS = loadToss(); renderToss(); } go('toss'); }
+    else { if (MG.practice) { MG = loadMg(); renderMuggins(); } go('muggins'); }
+  });
+
+  sheet.addEventListener('click', e => {
+    const b = e.target.closest('button'); if (!b || !b.dataset.sheet) return;
+    const a = b.dataset.sheet, i = +b.dataset.i;
+    if (a === 'tut') { store.set('cribble:seen', 1); openSheet(tutHTML(0)); }
+    else if (a === 'skip') { store.set('cribble:seen', 1); closeSheet(); }
+    else if (a === 'next') openSheet(tutHTML(i + 1));
+    else if (a === 'back') openSheet(tutHTML(i - 1));
+    else if (a === 'close') closeSheet();
+    else if (a === 'warmup') startWarmup();
+    else if (a === 'today') playToday();
+  });
+  document.getElementById('btn-help').addEventListener('click', () => openSheet(tutHTML(0)));
+  document.addEventListener('click', e => {
+    const b = e.target.closest('button[data-act]'); if (!b) return;
+    if (b.dataset.act === 'share-all') {
+      const host = b.closest('.panel, .sheet').querySelector('.sharehost');
+      copyText(todayShare(), host, b);
+    } else if (b.dataset.act === 'wu-next') {
+      const sec = b.closest('section');
+      const g = sec.id === 'mode-guess' ? CR.games[CR.mode] : sec.id === 'mode-toss' ? TS : MG;
+      wuNext(g.warmup);
+    }
+  });
+
+  // ---------- Router ----------
+  let ACTIVE = 'guess';
+  function route() { show((location.hash || '#guess').slice(1)); }
+  function show(h) {
+    ACTIVE = ['guess', 'toss', 'muggins', 'stats'].includes(h) ? h : 'guess';
+    if (ACTIVE === 'stats') renderStats();
+    ['guess', 'toss', 'muggins', 'stats'].forEach(x => {
+      document.getElementById('mode-' + x).classList.toggle('on', x === ACTIVE);
+      const tab = document.getElementById('tab-' + x);
+      if (x === ACTIVE) tab.setAttribute('aria-current', 'page'); else tab.removeAttribute('aria-current');
+    });
+  }
+  window.addEventListener('hashchange', route);
+  // Switch modes directly; the hash is only a bookmark and some viewers don't pass link clicks through.
+  function go(m) {
+    show(m);
+    try { if (location.hash !== '#' + m) history.replaceState(null, '', '#' + m); } catch (e) {}
+    window.scrollTo(0, 0);
+  }
+  document.querySelector('nav.tabs').addEventListener('click', e => {
+    const a = e.target.closest('a[href^="#"]'); if (!a) return;
+    e.preventDefault();
+    go(a.getAttribute('href').slice(1));
+  });
+  route();
+  renderGuess();
+  renderToss();
+  renderMuggins();
+  if (TS.done && !TS.analysis) setTimeout(() => { TS.analysis = tossAnalysis(TS.six, TS.dealer); saveToss(TS); recordToss(TS); renderToss(); }, 40);
+  recordGuess(CR.games.easy); recordGuess(CR.games.hard); recordToss(TS); recordMg(MG);
+  if (!store.get('cribble:seen')) openSheet(welcomeHTML());
+})();
+
+</script>
+</body>
+</html>
